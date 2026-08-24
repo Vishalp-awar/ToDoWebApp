@@ -82,6 +82,7 @@ function App() {
             <div className="navbar-nav ms-auto align-items-md-center gap-md-4">
               <a className="nav-link active" href="#tasks">My tasks</a>
               <a className="nav-link" href="#create">Create task</a>
+              <a className="nav-link" href="#create">Upcoming feature</a>
               <span className="nav-status"><i /> All systems clear</span>
             </div>
           </div>
