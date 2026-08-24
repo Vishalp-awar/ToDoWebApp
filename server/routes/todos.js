@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
-import Todo from '../models/Todo.js';
+import Todo from '../models/todo.js';
 
 const router = Router();
 const validStatuses = ['pending', 'working', 'done'];
