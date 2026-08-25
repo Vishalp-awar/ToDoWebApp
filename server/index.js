@@ -3,6 +3,8 @@ import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
 import todoRoutes from './routes/todos.js';
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
@@ -17,6 +19,8 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/todos', todoRoutes);
 
 app.use((error, _request, response, _next) => {
@@ -29,6 +33,10 @@ app.use((error, _request, response, _next) => {
 
 if (!process.env.MONGODB_URI) {
   console.error('MONGODB_URI is required. Add it to server/.env.');
+  process.exit(1);
+}
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is required. Add it to server/.env.');
   process.exit(1);
 }
 

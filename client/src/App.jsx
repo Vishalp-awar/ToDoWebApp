@@ -3,145 +3,23 @@ import { useCallback, useEffect, useState } from 'react';
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 const statuses = ['pending', 'working', 'done'];
 const statusLabels = { pending: 'Pending', working: 'Working', done: 'Done' };
+async function request(path, options = {}, token) { const response = await fetch(`${API_BASE_URL}${path}`, { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }, ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message || 'Request failed.'); return data; }
 
-async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || 'Request failed.');
-  return data;
+function AuthScreen({ onAuthenticated }) {
+  const [mode, setMode] = useState('login'); const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [isSaving, setIsSaving] = useState(false);
+  async function submit(event) { event.preventDefault(); try { setIsSaving(true); setError(''); const payload = await request(`/auth/${mode === 'login' ? 'login' : 'register'}`, { method: 'POST', body: JSON.stringify({ name, email, password }) }); localStorage.setItem('taskflow_token', payload.token); onAuthenticated(payload.token, payload.user); } catch (authError) { setError(authError.message); } finally { setIsSaving(false); } }
+  return <main className="auth-page min-vh-100 d-flex align-items-center py-5"><div className="auth-glow" /><div className="container position-relative"><div className="row justify-content-center"><div className="col-md-8 col-lg-5"><div className="auth-card"><a className="brand-mark d-inline-block mb-5" href="#top"><span>✦</span> taskflow</a><span className="section-kicker">WELCOME TO YOUR WORKSPACE</span><h1>{mode === 'login' ? <>Welcome <em>back.</em></> : <>Create your <em>space.</em></>}</h1><p className="auth-intro">{mode === 'login' ? 'Log in with your registered account to continue.' : 'Register once, then invite teammates by asking them to create an account.'}</p>{error && <div className="alert alert-danger">{error}</div>}<form onSubmit={submit}>{mode === 'register' && <><label className="form-label" htmlFor="auth-name">Your name</label><input id="auth-name" className="form-control mb-3" value={name} onChange={(e) => setName(e.target.value)} required /></>}<label className="form-label" htmlFor="auth-email">Email address</label><input id="auth-email" type="email" className="form-control mb-3" value={email} onChange={(e) => setEmail(e.target.value)} required /><label className="form-label" htmlFor="auth-password">Password</label><input id="auth-password" type="password" className="form-control mb-4" value={password} onChange={(e) => setPassword(e.target.value)} minLength="6" required /><button className="btn create-button w-100" disabled={isSaving}>{isSaving ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}</button></form><p className="auth-switch">{mode === 'login' ? 'New here?' : 'Already have an account?'} <button type="button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Create an account' : 'Log in'}</button></p></div></div></div></div></main>;
 }
 
 function App() {
-  const [todos, setTodos] = useState([]);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const pendingCount = todos.filter((todo) => todo.status === 'pending').length;
-  const workingCount = todos.filter((todo) => todo.status === 'working').length;
-  const doneCount = todos.filter((todo) => todo.status === 'done').length;
-
-  const loadTodos = useCallback(async () => {
-    try {
-      setError('');
-      setIsLoading(true);
-      setTodos(await request('/todos'));
-    } catch (loadError) {
-      setError(loadError.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadTodos(); }, [loadTodos]);
-
-  async function createTodo(event) {
-    event.preventDefault();
-    if (!title.trim()) return;
-    try {
-      setIsSaving(true);
-      setError('');
-      const todo = await request('/todos', {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim(), description: description.trim() })
-      });
-      setTodos((current) => [todo, ...current]);
-      setTitle('');
-      setDescription('');
-    } catch (saveError) {
-      setError(saveError.message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function changeStatus(id, status) {
-    try {
-      setError('');
-      const updated = await request(`/todos/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status })
-      });
-      setTodos((current) => current.map((todo) => todo._id === id ? updated : todo));
-    } catch (updateError) {
-      setError(updateError.message);
-    }
-  }
-
-  return (
-    <div className="app-shell min-vh-100">
-      <nav className="navbar navbar-expand-md app-navbar">
-        <div className="container">
-          <a className="navbar-brand brand-mark" href="#top" aria-label="TaskFlow home"><span>✦</span> taskflow</a>
-          <button className="navbar-toggler border-0 p-0" type="button" data-bs-toggle="collapse" data-bs-target="#main-navigation" aria-controls="main-navigation" aria-expanded="false" aria-label="Toggle navigation"><span className="navbar-toggler-icon" /></button>
-          <div className="collapse navbar-collapse" id="main-navigation">
-            <div className="navbar-nav ms-auto align-items-md-center gap-md-4">
-              <a className="nav-link active" href="#tasks">My tasks</a>
-              <a className="nav-link" href="#create">Create task</a>
-              <a className="nav-link" href="#create">Upcoming feature</a>
-              <span className="nav-status"><i /> All systems clear</span>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <main id="top" className="py-4 py-lg-5">
-      <div className="container">
-        <header className="hero-panel mb-4 mb-lg-5">
-          <div className="hero-copy">
-            <p className="eyebrow mb-3">TODAY’S FOCUS <span>—</span> {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-            <h1>Make space for<br /><em>meaningful work.</em></h1>
-            <p className="hero-description mb-0">A calm, considered place to capture what matters and move it towards done.</p>
-          </div>
-          <div className="hero-orb" aria-hidden="true"><span>✦</span><small>FOCUS<br />MODE</small></div>
-        </header>
-        <section className="stats-grid mb-4 mb-lg-5" aria-label="Task summary">
-          <div className="stat-card"><span className="stat-label">Total tasks</span><strong>{todos.length}</strong><small>in your workspace</small></div>
-          <div className="stat-card amber"><span className="stat-label">In progress</span><strong>{workingCount}</strong><small>currently moving</small></div>
-          <div className="stat-card green"><span className="stat-label">Completed</span><strong>{doneCount}</strong><small>{todos.length ? `${Math.round((doneCount / todos.length) * 100)}% completion` : 'ready when you are'}</small></div>
-        </section>
-        <div className="row g-4">
-          <section className="col-lg-4" id="create">
-            <div className="card border-0 form-card"><div className="card-body p-4 p-xl-4">
-              <span className="section-kicker">01 / CAPTURE</span>
-              <h2 className="form-heading">Start with a<br /><em>small step.</em></h2>
-              <form onSubmit={createTodo}>
-                <label htmlFor="title" className="form-label fw-medium">Task title</label>
-                <input id="title" className="form-control mb-3" value={title} onChange={(event) => setTitle(event.target.value)} maxLength="120" placeholder="e.g. Plan next sprint" required />
-                <label htmlFor="description" className="form-label fw-medium">Description <span className="text-secondary fw-normal">(optional)</span></label>
-                <textarea id="description" className="form-control mb-4" rows="4" value={description} onChange={(event) => setDescription(event.target.value)} maxLength="500" placeholder="Add helpful details" />
-                <button className="btn create-button w-100" disabled={isSaving}>{isSaving ? 'Adding task…' : <><span>+</span> Add to my list</>}</button>
-              </form>
-            </div></div>
-          </section>
-          <section className="col-lg-8" id="tasks">
-            <div className="task-section-heading">
-              <div><span className="section-kicker">02 / MOVE FORWARD</span><h2>Your open <em>canvas.</em></h2></div>
-              <button className="refresh-button" onClick={loadTodos} aria-label="Refresh tasks"><span>↻</span> Refresh</button>
-            </div>
-            {error && <div className="alert alert-danger" role="alert">{error}</div>}
-            {isLoading ? <p className="text-secondary">Loading tasks…</p> : todos.length === 0 ? (
-              <div className="empty-state text-center p-5 rounded-4"><span>✦</span><p className="mb-1">Your canvas is clear.</p><small>Add a thoughtful first task to begin.</small></div>
-            ) : <div className="row g-3">{todos.map((todo) => (
-              <div className="col-md-6" key={todo._id}><article className={`card h-100 border-0 task-card status-${todo.status}`}><div className="card-body p-4 d-flex flex-column">
-                <div className="d-flex justify-content-between gap-3 mb-3"><span className="task-number">{String(todos.indexOf(todo) + 1).padStart(2, '0')}</span><span className={`badge status-badge ${todo.status}`}>{statusLabels[todo.status]}</span></div>
-                <h3 className="task-title">{todo.title}</h3>
-                {todo.description && <p className="task-description flex-grow-1">{todo.description}</p>}
-                <label className="form-label small fw-semibold mt-auto" htmlFor={`status-${todo._id}`}>Update status</label>
-                <select id={`status-${todo._id}`} className="form-select" value={todo.status} onChange={(event) => changeStatus(todo._id, event.target.value)}>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select>
-              </div></article></div>
-            ))}</div>}
-          </section>
-        </div>
-      </div>
-      </main>
-      <footer className="app-footer"><div className="container d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3"><p className="mb-0 footer-brand">✦ taskflow</p><p className="mb-0 footer-note">Organize lightly. Accomplish deeply.</p><a href="#top" className="back-top">Back to top ↑</a></div></footer>
-    </div>
-  );
+  const [token, setToken] = useState(() => localStorage.getItem('taskflow_token')); const [currentUser, setCurrentUser] = useState(null); const [todos, setTodos] = useState([]); const [users, setUsers] = useState([]); const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [assignedTo, setAssignedTo] = useState(''); const [isLoading, setIsLoading] = useState(true); const [isSaving, setIsSaving] = useState(false); const [error, setError] = useState('');
+  const pendingCount = todos.filter((todo) => todo.status === 'pending').length; const workingCount = todos.filter((todo) => todo.status === 'working').length; const doneCount = todos.filter((todo) => todo.status === 'done').length;
+  const logout = useCallback(() => { localStorage.removeItem('taskflow_token'); setToken(null); setCurrentUser(null); setTodos([]); }, []);
+  const loadWorkspace = useCallback(async () => { if (!token) return; try { setError(''); setIsLoading(true); const [me, savedUsers, savedTodos] = await Promise.all([request('/auth/me', {}, token), request('/users', {}, token), request('/todos', {}, token)]); setCurrentUser(me); setUsers(savedUsers); setTodos(savedTodos); setAssignedTo((value) => value || String(me.id)); } catch (loadError) { setError(loadError.message); if (loadError.message.includes('session') || loadError.message.includes('log in')) logout(); } finally { setIsLoading(false); } }, [token, logout]);
+  useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
+  async function createTodo(event) { event.preventDefault(); if (!title.trim()) return; try { setIsSaving(true); setError(''); const todo = await request('/todos', { method: 'POST', body: JSON.stringify({ title: title.trim(), description: description.trim(), assignedTo }) }, token); setTodos((current) => [todo, ...current]); setTitle(''); setDescription(''); } catch (saveError) { setError(saveError.message); } finally { setIsSaving(false); } }
+  async function updateTodo(id, path, body) { try { setError(''); const updated = await request(`/todos/${id}${path}`, { method: 'PATCH', body: JSON.stringify(body) }, token); setTodos((current) => current.map((todo) => todo._id === id ? updated : todo)); } catch (updateError) { setError(updateError.message); } }
+  if (!token) return <AuthScreen onAuthenticated={(nextToken, user) => { setToken(nextToken); setCurrentUser(user); }} />;
+  return <div className="app-shell min-vh-100"><nav className="navbar app-navbar"><div className="container"><a className="navbar-brand brand-mark" href="#top"><span>✦</span> taskflow</a><div className="navbar-nav ms-auto align-items-center flex-row gap-3"><span className="user-chip">● <b>{currentUser?.name || 'Loading'}</b></span><button className="logout-button" onClick={logout}>Log out</button></div></div></nav><main id="top" className="py-4 py-lg-5"><div className="container"><header className="hero-panel mb-4 mb-lg-5"><div className="hero-copy"><p className="eyebrow mb-3">TODAY’S FOCUS <span>—</span> {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p><h1>Make space for<br /><em>meaningful work.</em></h1><p className="hero-description mb-0">Welcome, {currentUser?.name || 'there'}. Keep your team aligned and work moving.</p></div><div className="hero-orb" aria-hidden="true"><span>✦</span><small>FOCUS<br />MODE</small></div></header><section className="stats-grid mb-4 mb-lg-5"><div className="stat-card"><span className="stat-label">Total tasks</span><strong>{todos.length}</strong><small>in your workspace</small></div><div className="stat-card amber"><span className="stat-label">In progress</span><strong>{workingCount}</strong><small>currently moving</small></div><div className="stat-card green"><span className="stat-label">Completed</span><strong>{doneCount}</strong><small>{todos.length ? `${Math.round(doneCount / todos.length * 100)}% completion` : 'ready when you are'}</small></div></section><div className="row g-4"><section className="col-lg-4"><div className="card border-0 form-card"><div className="card-body p-4"><span className="section-kicker">01 / CAPTURE & ASSIGN</span><h2 className="form-heading">Start with a<br /><em>small step.</em></h2><form onSubmit={createTodo}><label htmlFor="title" className="form-label fw-medium">Task title</label><input id="title" className="form-control mb-3" value={title} onChange={(e) => setTitle(e.target.value)} maxLength="120" placeholder="e.g. Plan next sprint" required /><label htmlFor="description" className="form-label fw-medium">Description <span className="text-secondary fw-normal">(optional)</span></label><textarea id="description" className="form-control mb-3" rows="3" value={description} onChange={(e) => setDescription(e.target.value)} maxLength="500" placeholder="Add helpful details" /><label htmlFor="assignee" className="form-label fw-medium">Assign to</label><select id="assignee" className="form-select mb-4" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>{users.map((user) => <option key={user._id} value={user._id}>{user.name}{user.email === currentUser?.email ? ' (You)' : ''}</option>)}</select><button className="btn create-button w-100" disabled={isSaving || !assignedTo}>{isSaving ? 'Adding task…' : <><span>+</span> Add to my list</>}</button></form></div></div></section><section className="col-lg-8" id="tasks"><div className="task-section-heading"><div><span className="section-kicker">02 / MOVE FORWARD</span><h2>Your open <em>canvas.</em></h2></div><button className="refresh-button" onClick={loadWorkspace}><span>↻</span> Refresh</button></div>{error && <div className="alert alert-danger">{error}</div>}{isLoading ? <p className="text-secondary">Loading your workspace…</p> : todos.length === 0 ? <div className="empty-state text-center p-5 rounded-4"><span>✦</span><p className="mb-1">Your canvas is clear.</p><small>Every teammate must register before they can be assigned a task.</small></div> : <div className="row g-3">{todos.map((todo, index) => <div className="col-md-6" key={todo._id}><article className={`card h-100 border-0 task-card status-${todo.status}`}><div className="card-body p-4 d-flex flex-column"><div className="d-flex justify-content-between gap-3 mb-3"><span className="task-number">{String(index + 1).padStart(2, '0')}</span><span className={`badge status-badge ${todo.status}`}>{statusLabels[todo.status]}</span></div><h3 className="task-title">{todo.title}</h3>{todo.description && <p className="task-description flex-grow-1">{todo.description}</p>}<label className="form-label small fw-semibold mt-auto" htmlFor={`assignee-${todo._id}`}>Assigned to</label><select id={`assignee-${todo._id}`} className="form-select form-select-sm mb-2" value={todo.assignedTo?._id || ''} onChange={(e) => updateTodo(todo._id, '/assignee', { assignedTo: e.target.value })}>{users.map((user) => <option key={user._id} value={user._id}>{user.name}</option>)}</select><label className="form-label small fw-semibold" htmlFor={`status-${todo._id}`}>Update status</label><select id={`status-${todo._id}`} className="form-select" value={todo.status} onChange={(e) => updateTodo(todo._id, '/status', { status: e.target.value })}>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></div></article></div>)}</div>}</section></div></div></main><footer className="app-footer"><div className="container d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3"><p className="mb-0 footer-brand">✦ taskflow</p><p className="mb-0 footer-note">Organize lightly. Accomplish deeply.</p><a href="#top" className="back-top">Back to top ↑</a></div></footer></div>;
 }
-
 export default App;

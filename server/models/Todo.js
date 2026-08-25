@@ -18,6 +18,16 @@ const todoSchema = new mongoose.Schema(
       type: String,
       enum: ['pending', 'working', 'done'],
       default: 'pending'
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
     }
   },
   { timestamps: true }
